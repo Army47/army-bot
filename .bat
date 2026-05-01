@@ -1,8 +1,14 @@
 @echo off
 cd /d C:\Users\johnn\Desktop\army bot
 
-git add .
-git commit -m "auto update"
-git push
+echo =========================
+echo Subiendo cambios...
+echo =========================
 
+git add .
+git commit -m "update %date% %time%"
+git push origin main
+
+echo =========================
+echo SUBIDO ✅
 pause

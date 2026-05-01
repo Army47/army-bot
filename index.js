@@ -1,4 +1,6 @@
-require('dotenv').config({ path: './.env' });
+require('dotenv').config();
+
+console.log("TOKEN:", process.env.TOKEN);
 
 const fs = require('fs');
 const path = require('path');
