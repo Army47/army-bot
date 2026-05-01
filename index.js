@@ -109,14 +109,14 @@ function iniciarEventos() {
           const timestamp = Math.floor(inicio.getTime() / 1000);
 
           const embed = new EmbedBuilder()
-            .setTitle('🏆 Evento Programado')
+            .setTitle(' Evento Programado')
             .setDescription(
 `━━━━━━━━━━━━━━━━━━
 
-🎮 **${evento.nombre}**
+ **${evento.nombre}**
 ⏳ Empieza <t:${timestamp}:R>
 
-📍 Prepárate para entrar
+🌌 Portal activo ahora mismo en barrio
 
 ━━━━━━━━━━━━━━━━━━`
             )
@@ -159,10 +159,10 @@ function iniciarEventos() {
             .setDescription(
 `━━━━━━━━━━━━━━━━━━
 
-🌪️ **Tormentas disponibles**
+ **Tormentas disponibles**
 ⚔️ Entra y domina la zona
 
-💀 PvP activo ahora mismo
+🌌 Portal activo ahora mismo en barrio
 
 ━━━━━━━━━━━━━━━━━━`
             )
