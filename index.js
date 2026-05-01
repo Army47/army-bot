@@ -101,18 +101,27 @@ function iniciarEventos() {
 
         } else {
 
-          // 🟢 NORMAL
+          const inicio = new Date();
+          inicio.setHours(parseInt(h));
+          inicio.setMinutes(parseInt(m));
+          inicio.setSeconds(0);
+
+          const timestamp = Math.floor(inicio.getTime() / 1000);
+
           const embed = new EmbedBuilder()
             .setTitle('🏆 Evento Programado')
             .setDescription(
 `━━━━━━━━━━━━━━━━━━
 
 🎮 **${evento.nombre}**
-⏰ Empieza en 2 minutos
+⏳ Empieza <t:${timestamp}:R>
+
+📍 Prepárate para entrar
 
 ━━━━━━━━━━━━━━━━━━`
             )
-            .setColor(0x8e44ad)
+            .setColor(0x000000)
+            .setFooter({ text: '⚔️ Army Events System' })
             .setTimestamp();
 
           const msg = await canal.send({
@@ -150,12 +159,15 @@ function iniciarEventos() {
             .setDescription(
 `━━━━━━━━━━━━━━━━━━
 
-🔥 **EN CURSO**
-⚔️ Únete ahora
+🌪️ **Tormentas disponibles**
+⚔️ Entra y domina la zona
+
+💀 PvP activo ahora mismo
 
 ━━━━━━━━━━━━━━━━━━`
             )
-            .setColor(0x6a0dad)
+            .setColor(0x000000)
+            .setFooter({ text: '⚔️ Army Events System' })
             .setTimestamp();
 
           const msg = await canal.send({
@@ -176,20 +188,7 @@ function iniciarEventos() {
         nuevaLista.push(ev);
       }
 
-      else if (ev.tipo === 'normal') {
-
-        if (Date.now() >= ev.borrarEn) {
-          try {
-            const canal = await client.channels.fetch(ev.channelId);
-            const msg = await canal.messages.fetch(ev.messageId);
-            await msg.delete().catch(() => {});
-          } catch {}
-        } else {
-          nuevaLista.push(ev);
-        }
-      }
-
-      else if (ev.tipo === 'delete') {
+      else if (ev.tipo === 'normal' || ev.tipo === 'delete') {
 
         if (Date.now() >= ev.borrarEn) {
           try {
@@ -256,14 +255,12 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
 client.on('guildMemberAdd', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
-
   canal.send(`🟢 **${member.user.tag}** se unió`);
 });
 
 client.on('guildMemberRemove', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
-
   canal.send(`🔴 **${member.user.tag}** salió`);
 });
 
