@@ -39,34 +39,34 @@ const client = new Client({
 // ================= EVENTOS =================
 
 const eventos = [
-  { hora: "13:30", nombre: "🏆 Torneo 1v1" },
-  { hora: "14:00", nombre: "🏆 Torneo bandas (2v2)" },
-  { hora: "14:45", nombre: "🎯 Domina (Bandas)" },
-  { hora: "15:00", nombre: "🏆 Torneo bandas (3v3)" },
-  { hora: "16:00", nombre: "🌪️ Tanda de Tormentas" },
-  { hora: "17:00", nombre: "🏆 Torneo bandas (4v4)" },
-  { hora: "17:45", nombre: "🎯 Domina (Bandas)" },
-  { hora: "18:00", nombre: "🏆 Torneo bandas (5v5)" },
-  { hora: "18:45", nombre: "💥 Battle Royale" },
-  { hora: "19:00", nombre: "🏆 Torneo 1v1" },
-  { hora: "19:35", nombre: "🎯 Domina (Bandas)" },
-  { hora: "20:00", nombre: "🎉 Mega Torneo 6v6-10v10" },
-  { hora: "21:00", nombre: "💣 Mega Battle Royale" },
-  { hora: "21:30", nombre: "🎁 Drop del Día" },
+  { hora: "12:30", nombre: "🏆 Torneo 1v1" },
+  { hora: "13:00", nombre: "🏆 Torneo bandas (2v2)" },
+  { hora: "13:45", nombre: "🎯 Domina (Bandas)" },
+  { hora: "14:00", nombre: "🏆 Torneo bandas (3v3)" },
+  { hora: "15:00", nombre: "🌪️ Tanda de Tormentas" },
+  { hora: "16:00", nombre: "🏆 Torneo bandas (4v4)" },
+  { hora: "16:45", nombre: "🎯 Domina (Bandas)" },
+  { hora: "17:00", nombre: "🏆 Torneo bandas (5v5)" },
+  { hora: "17:45", nombre: "💥 Battle Royale" },
+  { hora: "18:00", nombre: "🏆 Torneo 1v1" },
+  { hora: "18:35", nombre: "🎯 Domina (Bandas)" },
+  { hora: "19:00", nombre: "🎉 Mega Torneo 6v6-10v10" },
+  { hora: "20:00", nombre: "💣 Mega Battle Royale" },
+  { hora: "20:30", nombre: "🎁 Drop del Día" },
+  { hora: "20:45", nombre: "🏆 Torneo bandas (6v6)" },
   { hora: "21:45", nombre: "🏆 Torneo bandas (6v6)" },
-  { hora: "22:45", nombre: "🏆 Torneo bandas (6v6)" },
-  { hora: "23:15", nombre: "🌪️ Tanda de Tormentas" },
-  { hora: "01:05", nombre: "🏆 Torneo bandas (5v5)" },
-  { hora: "01:30", nombre: "🏆 Torneo 1v1" },
-  { hora: "01:45", nombre: "🏆 Torneo bandas (4v4)" },
-  { hora: "02:15", nombre: "🏆 Torneo bandas (3v3)" }
+  { hora: "22:15", nombre: "🌪️ Tanda de Tormentas" },
+  { hora: "23:15", nombre: "🏆 Torneo bandas (5v5)" },
+  { hora: "00:05", nombre: "🏆 Torneo 1v1" },
+  { hora: "00:35", nombre: "🏆 Torneo bandas (4v4)" },
+  { hora: "01:15", nombre: "🏆 Torneo bandas (3v3)" }
 ];
 
 function iniciarEventos() {
 
   setInterval(async () => {
 
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
     const horaActual = now.getHours().toString().padStart(2, '0') + ":" +
                        now.getMinutes().toString().padStart(2, '0');
 
@@ -85,7 +85,7 @@ function iniciarEventos() {
       const aviso = avisoHora.toString().padStart(2, '0') + ":" +
                     avisoMin.toString().padStart(2, '0');
 
-      let activo = lista.find(e => e.nombre === evento.nombre);
+      let activo = lista.find(e => e.nombre === evento.nombre && e.hora === evento.hora);
 
       if (horaActual === aviso && !activo) {
 
@@ -93,11 +93,12 @@ function iniciarEventos() {
         if (evento.nombre.toLowerCase().includes('tormentas')) {
 
           lista.push({
-            nombre: evento.nombre,
-            tipo: 'tormentas',
-            inicio: Date.now(),
-            ultimoEnvio: 0
-          });
+  nombre: evento.nombre,
+  hora: evento.hora, // 🔥 AÑADIR ESTO
+  tipo: 'tormentas',
+  inicio: Date.now(),
+  ultimoEnvio: 0
+});
 
         } else {
 
@@ -179,7 +180,7 @@ function iniciarEventos() {
             tipo: 'delete',
             messageId: msg.id,
             channelId: canal.id,
-            borrarEn: Date.now() + (15 * 60 * 1000)
+            borrarEn: ev.inicio + (60 * 60 * 1000)
           });
 
           ev.ultimoEnvio = Date.now();
