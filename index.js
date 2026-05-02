@@ -211,7 +211,7 @@ function iniciarEventos() {
 // ================= LOGS =================
 
 function getLogChannel(guild) {
-  return guild.channels.cache.get(config.logsChannelId);
+  return guild.channels.cache.get(config.logs.channelId);
 }
 
 // 🗑️ DELETE
