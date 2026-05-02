@@ -63,14 +63,13 @@ const eventos = [
 ];
 
 function iniciarEventos() {
-
   setInterval(async () => {
 
     const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
     const horaActual = now.getHours().toString().padStart(2, '0') + ":" +
                        now.getMinutes().toString().padStart(2, '0');
 
-    const canal = client.channels.cache.get(config.eventos.canalId);
+    const canal = await client.channels.fetch(config.eventos.canalId).catch(() => null);
     if (!canal) return;
 
     let lista = cargarEventos();
@@ -89,16 +88,15 @@ function iniciarEventos() {
 
       if (horaActual === aviso && !activo) {
 
-        // 🌪️ TORMENTAS
         if (evento.nombre.toLowerCase().includes('tormentas')) {
 
           lista.push({
-  nombre: evento.nombre,
-  hora: evento.hora, // 🔥 AÑADIR ESTO
-  tipo: 'tormentas',
-  inicio: Date.now(),
-  ultimoEnvio: 0
-});
+            nombre: evento.nombre,
+            hora: evento.hora,
+            tipo: 'tormentas',
+            inicio: Date.now(),
+            ultimoEnvio: 0
+          });
 
         } else {
 
@@ -141,8 +139,6 @@ function iniciarEventos() {
       }
     }
 
-    // ===== LOOP =====
-
     let nuevaLista = [];
 
     for (let ev of lista) {
@@ -150,7 +146,6 @@ function iniciarEventos() {
       if (ev.tipo === 'tormentas') {
 
         const tiempo = Date.now() - ev.inicio;
-
         if (tiempo > 60 * 60 * 1000) continue;
 
         if (Date.now() - ev.ultimoEnvio >= 5 * 60 * 1000) {
@@ -214,26 +209,20 @@ function getLogChannel(guild) {
   return guild.channels.cache.get(config.logs.channelId);
 }
 
-// 🗑️ DELETE
 client.on('messageDelete', async (message) => {
   if (!message.guild) return;
 
-  try {
-    if (message.partial) await message.fetch();
-  } catch {}
+  try { if (message.partial) await message.fetch(); } catch {}
 
   const canal = getLogChannel(message.guild);
   if (!canal) return;
 
-  const autor = message.author ? message.author.tag : "Desconocido";
-  const contenido = message.content || "Sin texto";
-
   const embed = new EmbedBuilder()
     .setTitle('🗑️ Mensaje eliminado')
     .addFields(
-      { name: 'Usuario', value: autor, inline: true },
+      { name: 'Usuario', value: message.author?.tag || "Desconocido", inline: true },
       { name: 'Canal', value: `<#${message.channel.id}>`, inline: true },
-      { name: 'Contenido', value: contenido }
+      { name: 'Contenido', value: message.content || "Sin texto" }
     )
     .setColor(0xff0000)
     .setTimestamp();
@@ -241,7 +230,6 @@ client.on('messageDelete', async (message) => {
   canal.send({ embeds: [embed] });
 });
 
-// ✏️ EDIT
 client.on('messageUpdate', async (oldMsg, newMsg) => {
   if (!newMsg.guild) return;
 
@@ -255,12 +243,10 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
   const canal = getLogChannel(newMsg.guild);
   if (!canal) return;
 
-  const autor = newMsg.author ? newMsg.author.tag : "Desconocido";
-
   const embed = new EmbedBuilder()
     .setTitle('✏️ Mensaje editado')
     .addFields(
-      { name: 'Usuario', value: autor },
+      { name: 'Usuario', value: newMsg.author?.tag || "Desconocido" },
       { name: 'Antes', value: oldMsg.content || '—' },
       { name: 'Después', value: newMsg.content || '—' }
     )
@@ -270,20 +256,23 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
   canal.send({ embeds: [embed] });
 });
 
-// 👤 JOIN
 client.on('guildMemberAdd', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🟢 **${member.user.tag}** se unió`);
 });
 
-// 🚪 LEAVE
 client.on('guildMemberRemove', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🔴 **${member.user.tag}** salió`);
 });
 
-// ================= LOGIN =================
+// ✅ READY (LO QUE TE FALTABA)
+client.once('ready', () => {
+  console.log(`✅ Bot listo como ${client.user.tag}`);
+  iniciarEventos();
+});
 
+// LOGIN
 client.login(process.env.TOKEN);
