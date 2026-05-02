@@ -214,18 +214,26 @@ function getLogChannel(guild) {
   return guild.channels.cache.get(config.logsChannelId);
 }
 
+// 🗑️ DELETE
 client.on('messageDelete', async (message) => {
-  if (!message.guild || !message.author) return;
+  if (!message.guild) return;
+
+  try {
+    if (message.partial) await message.fetch();
+  } catch {}
 
   const canal = getLogChannel(message.guild);
   if (!canal) return;
 
+  const autor = message.author ? message.author.tag : "Desconocido";
+  const contenido = message.content || "Sin texto";
+
   const embed = new EmbedBuilder()
     .setTitle('🗑️ Mensaje eliminado')
     .addFields(
-      { name: 'Usuario', value: message.author.tag, inline: true },
+      { name: 'Usuario', value: autor, inline: true },
       { name: 'Canal', value: `<#${message.channel.id}>`, inline: true },
-      { name: 'Contenido', value: message.content || 'Sin texto' }
+      { name: 'Contenido', value: contenido }
     )
     .setColor(0xff0000)
     .setTimestamp();
@@ -233,17 +241,26 @@ client.on('messageDelete', async (message) => {
   canal.send({ embeds: [embed] });
 });
 
+// ✏️ EDIT
 client.on('messageUpdate', async (oldMsg, newMsg) => {
-  if (!oldMsg.guild || oldMsg.author?.bot) return;
+  if (!newMsg.guild) return;
+
+  try {
+    if (oldMsg.partial) await oldMsg.fetch();
+    if (newMsg.partial) await newMsg.fetch();
+  } catch {}
+
   if (oldMsg.content === newMsg.content) return;
 
-  const canal = getLogChannel(oldMsg.guild);
+  const canal = getLogChannel(newMsg.guild);
   if (!canal) return;
+
+  const autor = newMsg.author ? newMsg.author.tag : "Desconocido";
 
   const embed = new EmbedBuilder()
     .setTitle('✏️ Mensaje editado')
     .addFields(
-      { name: 'Usuario', value: oldMsg.author.tag },
+      { name: 'Usuario', value: autor },
       { name: 'Antes', value: oldMsg.content || '—' },
       { name: 'Después', value: newMsg.content || '—' }
     )
@@ -253,23 +270,18 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
   canal.send({ embeds: [embed] });
 });
 
+// 👤 JOIN
 client.on('guildMemberAdd', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🟢 **${member.user.tag}** se unió`);
 });
 
+// 🚪 LEAVE
 client.on('guildMemberRemove', member => {
   const canal = getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🔴 **${member.user.tag}** salió`);
-});
-
-// ================= READY =================
-
-client.once('ready', () => {
-  console.log(`✅ Bot listo como ${client.user.tag}`);
-  iniciarEventos();
 });
 
 // ================= LOGIN =================
