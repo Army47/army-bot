@@ -65,9 +65,8 @@ const eventos = [
 function iniciarEventos() {
   setInterval(async () => {
 
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
-    const horaActual = now.getHours().toString().padStart(2, '0') + ":" +
-                       now.getMinutes().toString().padStart(2, '0');
+    const nowMadrid = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
+    const ahoraMs = nowMadrid.getTime();
 
     const canal = await client.channels.fetch(config.eventos.canalId).catch(() => null);
     if (!canal) return;
@@ -78,16 +77,24 @@ function iniciarEventos() {
 
       const [h, m] = evento.hora.split(":");
 
-      const avisoMin = (parseInt(m) - 2 + 60) % 60;
-      const avisoHora = parseInt(m) - 2 < 0 ? parseInt(h) - 1 : h;
+      // crear hora exacta del evento hoy en Madrid
+      const fechaEvento = new Date(nowMadrid);
+      fechaEvento.setHours(parseInt(h));
+      fechaEvento.setMinutes(parseInt(m));
+      fechaEvento.setSeconds(0);
+      fechaEvento.setMilliseconds(0);
 
-      const aviso = avisoHora.toString().padStart(2, '0') + ":" +
-                    avisoMin.toString().padStart(2, '0');
+      // aviso 2 minutos antes
+      const avisoMs = fechaEvento.getTime() - (2 * 60 * 1000);
+
+      // margen de 1 minuto (por el setInterval)
+      const margen = 60 * 1000;
 
       let activo = lista.find(e => e.nombre === evento.nombre && e.hora === evento.hora);
 
-      if (horaActual === aviso && !activo) {
+      if (ahoraMs >= avisoMs && ahoraMs < avisoMs + margen && !activo) {
 
+        // 🌪️ TORMENTAS
         if (evento.nombre.toLowerCase().includes('tormentas')) {
 
           lista.push({
@@ -100,10 +107,13 @@ function iniciarEventos() {
 
         } else {
 
-          const inicio = new Date();
-          inicio.setHours(parseInt(h));
-          inicio.setMinutes(parseInt(m));
-          inicio.setSeconds(0);
+          // timestamp CORRECTO del evento
+          const inicio = new Date(fechaEvento);
+
+          // si ya pasó hoy → mañana
+          if (inicio.getTime() <= ahoraMs) {
+            inicio.setDate(inicio.getDate() + 1);
+          }
 
           const timestamp = Math.floor(inicio.getTime() / 1000);
 
@@ -130,6 +140,7 @@ function iniciarEventos() {
 
           lista.push({
             nombre: evento.nombre,
+            hora: evento.hora,
             tipo: 'normal',
             messageId: msg.id,
             channelId: canal.id,
@@ -271,6 +282,8 @@ client.on('guildMemberRemove', member => {
 // ✅ READY (LO QUE TE FALTABA)
 client.once('ready', () => {
   console.log(`✅ Bot listo como ${client.user.tag}`);
+
+  await recuperarEventos(); // 🔥 NUEVO
   iniciarEventos();
 });
 
