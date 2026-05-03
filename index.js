@@ -77,24 +77,19 @@ function iniciarEventos() {
 
       const [h, m] = evento.hora.split(":");
 
-      // crear hora exacta del evento hoy en Madrid
       const fechaEvento = new Date(nowMadrid);
       fechaEvento.setHours(parseInt(h));
       fechaEvento.setMinutes(parseInt(m));
       fechaEvento.setSeconds(0);
       fechaEvento.setMilliseconds(0);
 
-      // aviso 2 minutos antes
       const avisoMs = fechaEvento.getTime() - (2 * 60 * 1000);
-
-      // margen de 1 minuto (por el setInterval)
       const margen = 60 * 1000;
 
       let activo = lista.find(e => e.nombre === evento.nombre && e.hora === evento.hora);
 
       if (ahoraMs >= avisoMs && ahoraMs < avisoMs + margen && !activo) {
 
-        // 🌪️ TORMENTAS
         if (evento.nombre.toLowerCase().includes('tormentas')) {
 
           lista.push({
@@ -107,10 +102,8 @@ function iniciarEventos() {
 
         } else {
 
-          // timestamp CORRECTO del evento
           const inicio = new Date(fechaEvento);
 
-          // si ya pasó hoy → mañana
           if (inicio.getTime() <= ahoraMs) {
             inicio.setDate(inicio.getDate() + 1);
           }
@@ -216,8 +209,8 @@ function iniciarEventos() {
 
 // ================= LOGS =================
 
-function getLogChannel(guild) {
-  return guild.channels.cache.get(config.logs.channelId);
+async function getLogChannel(guild) {
+  return await guild.channels.fetch(config.logs.channelId).catch(() => null);
 }
 
 client.on('messageDelete', async (message) => {
@@ -225,7 +218,7 @@ client.on('messageDelete', async (message) => {
 
   try { if (message.partial) await message.fetch(); } catch {}
 
-  const canal = getLogChannel(message.guild);
+  const canal = await getLogChannel(message.guild);
   if (!canal) return;
 
   const embed = new EmbedBuilder()
@@ -251,7 +244,7 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
 
   if (oldMsg.content === newMsg.content) return;
 
-  const canal = getLogChannel(newMsg.guild);
+  const canal = await getLogChannel(newMsg.guild);
   if (!canal) return;
 
   const embed = new EmbedBuilder()
@@ -267,25 +260,25 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
   canal.send({ embeds: [embed] });
 });
 
-client.on('guildMemberAdd', member => {
-  const canal = getLogChannel(member.guild);
+client.on('guildMemberAdd', async member => {
+  const canal = await getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🟢 **${member.user.tag}** se unió`);
 });
 
-client.on('guildMemberRemove', member => {
-  const canal = getLogChannel(member.guild);
+client.on('guildMemberRemove', async member => {
+  const canal = await getLogChannel(member.guild);
   if (!canal) return;
   canal.send(`🔴 **${member.user.tag}** salió`);
 });
 
-// ✅ READY (LO QUE TE FALTABA)
+// ================= READY =================
+
 client.once('ready', () => {
   console.log(`✅ Bot listo como ${client.user.tag}`);
-
-  await recuperarEventos(); // 🔥 NUEVO
   iniciarEventos();
 });
 
-// LOGIN
+// ================= LOGIN =================
+
 client.login(process.env.TOKEN);
