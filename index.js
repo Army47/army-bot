@@ -1,6 +1,5 @@
 require('dotenv').config();
-
-console.log("TOKEN:", process.env.TOKEN);
+console.log("TOKEN:", process.env.TOKEN ? "Cargado correctamente" : "NO ENCONTRADO");
 
 const fs = require('fs');
 const path = require('path');
@@ -11,7 +10,12 @@ const eventosPath = path.join(process.cwd(), 'eventos.json');
 
 function cargarEventos() {
   if (!fs.existsSync(eventosPath)) return [];
-  return JSON.parse(fs.readFileSync(eventosPath));
+  try {
+    return JSON.parse(fs.readFileSync(eventosPath, 'utf-8'));
+  } catch (error) {
+    console.error("Error al leer eventos.json:", error);
+    return [];
+  }
 }
 
 function guardarEventos(data) {
@@ -37,7 +41,6 @@ const client = new Client({
 });
 
 // ================= EVENTOS =================
-
 const eventos = [
   { hora: "12:30", nombre: "🏆 Torneo 1v1" },
   { hora: "13:00", nombre: "🏆 Torneo bandas (2v2)" },
@@ -64,9 +67,12 @@ const eventos = [
 
 function iniciarEventos() {
   setInterval(async () => {
-
-    const nowMadrid = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
-    const ahoraMs = nowMadrid.getTime();
+    // Calculamos la hora real y el offset para la zona horaria de Madrid
+    const realNow = new Date();
+    const madridString = realNow.toLocaleString("en-US", { timeZone: "Europe/Madrid" });
+    const madridDate = new Date(madridString);
+    const offset = madridDate.getTime() - realNow.getTime(); 
+    const ahoraMs = realNow.getTime();
 
     const canal = await client.channels.fetch(config.eventos.canalId).catch(() => null);
     if (!canal) return;
@@ -74,54 +80,40 @@ function iniciarEventos() {
     let lista = cargarEventos();
 
     for (const evento of eventos) {
-
       const [h, m] = evento.hora.split(":");
 
-      const fechaEvento = new Date(nowMadrid);
-      fechaEvento.setHours(parseInt(h));
-      fechaEvento.setMinutes(parseInt(m));
-      fechaEvento.setSeconds(0);
-      fechaEvento.setMilliseconds(0);
+      // Creamos la fecha del evento basándonos en la hora de Madrid actual
+      const fechaEventoMadrid = new Date(madridDate);
+      fechaEventoMadrid.setHours(parseInt(h), parseInt(m), 0, 0);
 
-      const avisoMs = fechaEvento.getTime() - (2 * 60 * 1000);
-      const margen = 60 * 1000;
+      // Convertimos la hora de Madrid a un timestamp UTC real para comparaciones exactas
+      let realEventDate = new Date(fechaEventoMadrid.getTime() - offset);
+
+      // Si la hora ya pasó (con margen), asumimos que es para mañana
+      if (realEventDate.getTime() < ahoraMs - (5 * 60 * 1000)) {
+        realEventDate.setDate(realEventDate.getDate() + 1);
+      }
+
+      const avisoMs = realEventDate.getTime() - (2 * 60 * 1000); // Avisar 2 mins antes
+      const margen = 60 * 1000; // 1 minuto de ventana para enviarlo
 
       let activo = lista.find(e => e.nombre === evento.nombre && e.hora === evento.hora);
 
       if (ahoraMs >= avisoMs && ahoraMs < avisoMs + margen && !activo) {
-
         if (evento.nombre.toLowerCase().includes('tormentas')) {
-
           lista.push({
             nombre: evento.nombre,
             hora: evento.hora,
             tipo: 'tormentas',
-            inicio: Date.now(),
+            inicio: ahoraMs,
             ultimoEnvio: 0
           });
-
         } else {
-
-          const inicio = new Date(fechaEvento);
-
-          if (inicio.getTime() <= ahoraMs) {
-            inicio.setDate(inicio.getDate() + 1);
-          }
-
-          const timestamp = Math.floor(inicio.getTime() / 1000);
+          const timestamp = Math.floor(realEventDate.getTime() / 1000);
 
           const embed = new EmbedBuilder()
-            .setTitle(' Evento Programado')
-            .setDescription(
-`━━━━━━━━━━━━━━━━━━
-
- **${evento.nombre}**
-⏳ Empieza <t:${timestamp}:R>
-
-🌌 Portal activo ahora mismo en barrio
-
-━━━━━━━━━━━━━━━━━━`
-            )
+            .setTitle('📅 Evento Programado')
+            .setDescription(`━━━━━━━━━━━━━━━━━━\n\n**${evento.nombre}**\n⏳ Empieza <t:${timestamp}:R>\n\n🌌 Portal activo ahora mismo en barrio\n\n━━━━━━━━━━━━━━━━━━`)
             .setColor(0x000000)
             .setFooter({ text: '⚔️ Army Events System' })
             .setTimestamp();
@@ -129,16 +121,18 @@ function iniciarEventos() {
           const msg = await canal.send({
             content: `<@&${config.eventos.rolId}>`,
             embeds: [embed]
-          });
+          }).catch(() => null);
 
-          lista.push({
-            nombre: evento.nombre,
-            hora: evento.hora,
-            tipo: 'normal',
-            messageId: msg.id,
-            channelId: canal.id,
-            borrarEn: Date.now() + (15 * 60 * 1000)
-          });
+          if (msg) {
+            lista.push({
+              nombre: evento.nombre,
+              hora: evento.hora,
+              tipo: 'normal',
+              messageId: msg.id,
+              channelId: canal.id,
+              borrarEn: ahoraMs + (15 * 60 * 1000)
+            });
+          }
         }
       }
     }
@@ -146,26 +140,14 @@ function iniciarEventos() {
     let nuevaLista = [];
 
     for (let ev of lista) {
-
       if (ev.tipo === 'tormentas') {
+        const tiempo = ahoraMs - ev.inicio;
+        if (tiempo > 60 * 60 * 1000) continue; // Si pasó 1 hora, lo borramos de la lista
 
-        const tiempo = Date.now() - ev.inicio;
-        if (tiempo > 60 * 60 * 1000) continue;
-
-        if (Date.now() - ev.ultimoEnvio >= 5 * 60 * 1000) {
-
+        if (ahoraMs - ev.ultimoEnvio >= 5 * 60 * 1000) {
           const embed = new EmbedBuilder()
             .setTitle('🌪️ Tanda de Tormentas')
-            .setDescription(
-`━━━━━━━━━━━━━━━━━━
-
- **Tormentas disponibles**
-⚔️ Entra y domina la zona
-
-🌌 Portal activo ahora mismo en barrio
-
-━━━━━━━━━━━━━━━━━━`
-            )
+            .setDescription(`━━━━━━━━━━━━━━━━━━\n\n**Tormentas disponibles**\n⚔️ Entra y domina la zona\n\n🌌 Portal activo ahora mismo en barrio\n\n━━━━━━━━━━━━━━━━━━`)
             .setColor(0x000000)
             .setFooter({ text: '⚔️ Army Events System' })
             .setTimestamp();
@@ -173,29 +155,27 @@ function iniciarEventos() {
           const msg = await canal.send({
             content: `<@&${config.eventos.rolId}>`,
             embeds: [embed]
-          });
+          }).catch(() => null);
 
-          nuevaLista.push({
-            tipo: 'delete',
-            messageId: msg.id,
-            channelId: canal.id,
-            borrarEn: ev.inicio + (60 * 60 * 1000)
-          });
-
-          ev.ultimoEnvio = Date.now();
+          if (msg) {
+            nuevaLista.push({
+              tipo: 'delete',
+              messageId: msg.id,
+              channelId: canal.id,
+              borrarEn: ev.inicio + (60 * 60 * 1000) // Borrar cuando acabe el evento
+            });
+          }
+          ev.ultimoEnvio = ahoraMs;
         }
-
         nuevaLista.push(ev);
-      }
-
+      } 
       else if (ev.tipo === 'normal' || ev.tipo === 'delete') {
-
-        if (Date.now() >= ev.borrarEn) {
+        if (ahoraMs >= ev.borrarEn) {
           try {
-            const canal = await client.channels.fetch(ev.channelId);
-            const msg = await canal.messages.fetch(ev.messageId);
+            const canalEv = await client.channels.fetch(ev.channelId);
+            const msg = await canalEv.messages.fetch(ev.messageId);
             await msg.delete().catch(() => {});
-          } catch {}
+          } catch {} // El mensaje ya estaba borrado o no hay acceso
         } else {
           nuevaLista.push(ev);
         }
@@ -203,12 +183,10 @@ function iniciarEventos() {
     }
 
     guardarEventos(nuevaLista);
-
   }, 60000);
 }
 
 // ================= LOGS =================
-
 async function getLogChannel(guild) {
   return await guild.channels.fetch(config.logs.channelId).catch(() => null);
 }
@@ -216,7 +194,9 @@ async function getLogChannel(guild) {
 client.on('messageDelete', async (message) => {
   if (!message.guild) return;
 
-  try { if (message.partial) await message.fetch(); } catch {}
+  // No puedes hacer "fetch" a un mensaje borrado si no estaba cacheado antes
+  // Si partial es true, el contenido se ha perdido irremediablemente.
+  const contenido = message.partial ? "*(Mensaje antiguo no cacheado, no se puede leer el contenido)*" : message.content;
 
   const canal = await getLogChannel(message.guild);
   if (!canal) return;
@@ -225,21 +205,22 @@ client.on('messageDelete', async (message) => {
     .setTitle('🗑️ Mensaje eliminado')
     .addFields(
       { name: 'Usuario', value: message.author?.tag || "Desconocido", inline: true },
-      { name: 'Canal', value: `<#${message.channel.id}>`, inline: true },
-      { name: 'Contenido', value: message.content || "Sin texto" }
+      { name: 'Canal', value: `<#${message.channelId}>`, inline: true },
+      // Limitamos a 1024 caracteres para evitar el error de Discord "Must be 1024 or fewer in length"
+      { name: 'Contenido', value: (contenido || "Sin texto").substring(0, 1024) }
     )
     .setColor(0xff0000)
     .setTimestamp();
 
-  canal.send({ embeds: [embed] });
+  canal.send({ embeds: [embed] }).catch(() => {});
 });
 
 client.on('messageUpdate', async (oldMsg, newMsg) => {
   if (!newMsg.guild) return;
 
   try {
-    if (oldMsg.partial) await oldMsg.fetch();
     if (newMsg.partial) await newMsg.fetch();
+    // oldMsg no se puede fetchear si no estaba cacheado, solo podemos fetchear el nuevo
   } catch {}
 
   if (oldMsg.content === newMsg.content) return;
@@ -247,38 +228,40 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
   const canal = await getLogChannel(newMsg.guild);
   if (!canal) return;
 
+  const oldContent = oldMsg.partial ? "*(Mensaje antiguo no cacheado)*" : (oldMsg.content || "Sin texto");
+  const newContent = newMsg.content || "Sin texto";
+
   const embed = new EmbedBuilder()
     .setTitle('✏️ Mensaje editado')
     .addFields(
       { name: 'Usuario', value: newMsg.author?.tag || "Desconocido" },
-      { name: 'Antes', value: oldMsg.content || '—' },
-      { name: 'Después', value: newMsg.content || '—' }
+      // Limitamos a 1024 caracteres
+      { name: 'Antes', value: oldContent.substring(0, 1024) },
+      { name: 'Después', value: newContent.substring(0, 1024) }
     )
     .setColor(0xffff00)
     .setTimestamp();
 
-  canal.send({ embeds: [embed] });
+  canal.send({ embeds: [embed] }).catch(() => {});
 });
 
 client.on('guildMemberAdd', async member => {
   const canal = await getLogChannel(member.guild);
   if (!canal) return;
-  canal.send(`🟢 **${member.user.tag}** se unió`);
+  canal.send(`🟢 **${member.user.tag}** se unió`).catch(() => {});
 });
 
 client.on('guildMemberRemove', async member => {
   const canal = await getLogChannel(member.guild);
   if (!canal) return;
-  canal.send(`🔴 **${member.user.tag}** salió`);
+  canal.send(`🔴 **${member.user.tag}** salió`).catch(() => {});
 });
 
 // ================= READY =================
-
 client.once('ready', () => {
   console.log(`✅ Bot listo como ${client.user.tag}`);
   iniciarEventos();
 });
 
 // ================= LOGIN =================
-
 client.login(process.env.TOKEN);
