@@ -84,7 +84,7 @@ function iniciarEventos() {
 
       // Creamos la fecha del evento basándonos en la hora de Madrid actual
       const fechaEventoMadrid = new Date(madridDate);
-      fechaEventoMadrid.setHours(parseInt(h), parseInt(m), 1, 0);
+      fechaEventoMadrid.setHours(parseInt(h), parseInt(m), 0, 0);
 
       // Convertimos la hora de Madrid a un timestamp UTC real para comparaciones exactas
       let realEventDate = new Date(fechaEventoMadrid.getTime() - offset);
